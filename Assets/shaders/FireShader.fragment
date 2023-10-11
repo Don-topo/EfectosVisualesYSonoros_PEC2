@@ -1,0 +1,54 @@
+#version 330 core
+
+in vec2 texCoord;
+in vec3 colorFragment;
+
+out vec4 fragColor;
+
+uniform sampler2D noiseMap; // noise Texture
+uniform sampler2D fireRamp; // color Texture;
+uniform float timef;	    // value to use in noise / distortion
+
+
+float noiseGenerator(in vec2 pos) {
+    float distortion = 0.0;
+    float repetitions = 6.0;    
+    float weight = 1.5;
+    float totalWeight = 0.0;
+    for (int i = 0; i < 4; i++) {
+        totalWeight += weight;
+	distortion += texture(noiseMap, (pos * repetitions) / 64.0).r * weight;
+        weight *= 0.5;    // Increment noise weight
+        repetitions *= 2.0; // Increment repetitions
+    }
+    return (distortion / totalWeight);
+}
+
+void main() {
+    float offsetDistortion = 0.2;
+    // Noise
+    float noiseDistortion = noiseGenerator(
+        vec2(
+            texCoord.x + (offsetDistortion * cos(timef) * texCoord.y), 
+            texCoord.y - (timef * offsetDistortion)
+        ) 
+        + offsetDistortion * 
+	vec2(
+            noiseGenerator(vec2(texCoord)), 
+            noiseGenerator(vec2(texCoord.x + (offsetDistortion * cos(timef)), texCoord.y  * offsetDistortion)               
+        ))
+    );
+
+    // Overlay
+    float gradient = 1.0 - smoothstep(0.0, 1.0, texCoord.y);
+    float offsetColor;
+    if(noiseDistortion < 0.5) {
+	offsetColor =  2.0 * noiseDistortion * gradient;
+    } else {
+	offsetColor = 1.0 - (2.0 * (1.0 - noiseDistortion) * (1.0 - gradient));
+    }
+
+    vec4 colorFragment = texture(fireRamp, vec2(offsetColor, offsetColor));
+    fragColor = colorFragment;
+
+}
